@@ -1,0 +1,63 @@
+import requests
+from flask import Flask, request, jsonify
+from pptx import Presentation
+import spacy
+
+app = Flask(__name)
+
+# Load a pre-trained spaCy model (you can choose a model suited for your language and domain)
+nlp = spacy.load("en_core_web_sm")
+
+@app.route('/get_ppt_summary', methods=['GET'])
+def get_ppt_summary():
+    ppt_url = request.args.get('url')
+
+    if ppt_url is None:
+        return jsonify({'error': 'PowerPoint URL not provided'})
+
+    try:
+        # Download and process the PowerPoint presentation
+        response = requests.get(ppt_url, stream=True)
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to fetch the PowerPoint presentation'})
+
+        with open('temp_presentation.pptx', 'wb') as ppt_file:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    ppt_file.write(chunk)
+
+        presentation = Presentation('temp_presentation.pptx')
+
+        # Extract text from slides
+        text_content = ""
+        for slide in presentation.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text_content += shape.text + " "
+
+        # Process the text using spaCy to extract key information or generate questions and answers
+        doc = nlp(text_content)
+
+        # Your summary generation logic here
+        summary = generate_summary_questions_answers(doc)
+
+        # Clean up temporary files
+        return jsonify({'summary': summary})
+
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+def generate_summary_questions_answers(doc):
+    # Your logic to generate summary questions and answers from the parsed text goes here.
+    # This will involve analyzing the text, identifying key points, and formulating questions and answers.
+    # You can use spaCy's capabilities to extract relevant information.
+
+    # This is a placeholder. You should implement your own logic.
+    summary = {
+        "questions": ["What is the main topic of the presentation?", "What are the key points discussed?"],
+        "answers": ["The main topic is XYZ.", "The key points include A, B, and C."],
+    }
+    return summary
+
+if __name__ == '__main__':
+    app.run(debug=True)
